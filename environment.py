@@ -10,7 +10,7 @@ from naav_gui import Sample, Obstacle, Boat
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 1200, 720
+WIDTH, HEIGHT = 1200, 800
 FPS = 60
 
 # Load background image
@@ -219,16 +219,17 @@ class NaavEnvironment(gym.Env):
 # Your Pygame initialization and game loop code here...
 
 # Example of a training loop
-env = NaavEnvironment()
-for episode in range(100):
-    observation = env.reset()
-    done = False
-    while not done:
-        action = env.action_space.sample()  # Replace with your agent's action
-        observation, reward, done, info = env.step(action)
+if __name__ == '__main__':
+    env = NaavEnvironment()
+    for episode in range(100):
+        observation = env.reset()
+        done = False
+        while not done:
+            action = env.action_space.sample()  # Replace with your agent's action
+            observation, reward, done, info = env.step(action)
 
-        # Your training logic goes here
+            # Your training logic goes here
 
-        env.render()
+            env.render()
 
-env.close()
+    env.close()
