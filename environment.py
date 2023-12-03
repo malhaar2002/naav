@@ -46,9 +46,6 @@ class NaavEnvironment(gym.Env):
         self.samples = pygame.sprite.Group()
         self.obstacles = pygame.sprite.Group()
 
-        self.obstacle_positions = self._generate_positions(self.num_obstacles)
-        self.reward_positions = self._generate_positions(self.num_rewards)
-
         self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
 
@@ -60,13 +57,14 @@ class NaavEnvironment(gym.Env):
         self.reset()
 
     def _place_samples(self, num_rewards):
+        self.reward_positions = self._generate_positions(self.num_rewards)
         for i in range(num_rewards):
             sample = Sample(self.reward_positions[i][0], self.reward_positions[i][1])
             self.samples.add(sample)
             self.all_sprites.add(sample)
 
     def _place_obstacles(self, num_obstacles):
-        # Create obstacles
+        self.obstacle_positions = self._generate_positions(self.num_obstacles)
         for i in range(num_obstacles):
             obstacle = Obstacle(self.obstacle_positions[i][0], self.obstacle_positions[i][1], f"assets/obstacle_{i+1}.png")
             self.obstacles.add(obstacle)
@@ -81,10 +79,22 @@ class NaavEnvironment(gym.Env):
                     random.randint(50, WIDTH - 50),
                     random.randint(50, HEIGHT - 50),
                 )
-                if position not in positions:
+                if not self._check_collision(position, positions):
                     positions.append(position)
                     break
         return positions
+
+    def _check_collision(self, position, existing_positions):
+        for existing_position in existing_positions:
+            if self._is_collision(position, existing_position):
+                return True
+        return False
+
+    def _is_collision(self, position1, position2):
+        x1, y1 = position1
+        x2, y2 = position2
+        distance = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+        return distance < 70
 
     def _is_valid_position(self, position):
         x, y = position
@@ -93,23 +103,19 @@ class NaavEnvironment(gym.Env):
     def _check_termination_conditions(self, reward):
         # check if all samples collected
         if self.collected_samples_count == self.num_rewards:
-            print("All samples collected!")
             done = True
 
         # check if out of bounds
         elif not self._is_valid_position((self.agent.rect.x, self.agent.rect.y)):
-            print("Out of bounds!")
             reward = self.reward_policy["obstacle"]
             done = True
 
         # check if max steps reached
         elif self.current_step >= self.max_steps:
-            print("Max steps reached!")
             done = True
 
         # Check for collisions with obstacles
         elif pygame.sprite.spritecollide(self.agent, self.obstacles, False):
-            print(f"Boat collided with an obstacle!")
             reward = self.reward_policy["obstacle"]
             done = True 
         
@@ -164,12 +170,10 @@ class NaavEnvironment(gym.Env):
         sample_hits = pygame.sprite.spritecollide(self.agent, self.samples, True)
         for _ in sample_hits:
             self.collected_samples_count += 1
-            print(f"Sample collected! Total samples collected: {self.collected_samples_count}")
             reward = self.reward_policy["sample"]
 
         for obstacle in self.obstacle_positions:
             if self._is_within_sensing_range(obstacle):
-                print("Obstacle within sensing range!")
                 self.visible_obstacles.append(obstacle)
 
         # Check for termination conditions
@@ -188,19 +192,22 @@ class NaavEnvironment(gym.Env):
         self.collected_samples_count = 0
         self.agent.rect.x = WIDTH // 2
         self.agent.rect.y = HEIGHT // 2
+
+        # change obstacle and reward positions
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
         self.obstacles = pygame.sprite.Group()
-        self.obstacle_positions = self._generate_positions(self.num_obstacles)
-        self.reward_positions = self._generate_positions(self.num_rewards)
         self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
+
         self.boat_position = (WIDTH // 2, HEIGHT // 2)
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
         self.all_sprites.add(boat)
         self.all_sprites.update()
-        return pygame.surfarray.array3d(pygame.display.get_surface())
+
+        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity, self.reward_positions, self.visible_obstacles)
+        return observation
 
 
     def render(self):
