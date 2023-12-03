@@ -30,6 +30,10 @@ class Boat(pygame.sprite.Sprite):
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
+        self.velocity = 0
+        self.max_velocity = 10
+        self.mass = 5
+        self.force = 20
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -50,6 +54,11 @@ class Boat(pygame.sprite.Sprite):
         # Update the boat's position based on its angle
         self.rect.x += speed * math.cos(math.radians(self.angle))
         self.rect.y -= speed * math.sin(math.radians(self.angle))
+
+    def draw_sensing_circle(self, screen, radius):
+        # Draw a red circle around the agent
+        pygame.draw.circle(screen, RED, (int(self.rect.centerx), int(self.rect.centery)), radius, 5)
+
 
 # Sample class
 class Sample(pygame.sprite.Sprite):

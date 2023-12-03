@@ -10,7 +10,7 @@ from naav_gui import Sample, Obstacle, Boat
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1200, 720
 FPS = 60
 
 # Load background image
@@ -49,17 +49,8 @@ class NaavEnvironment(gym.Env):
         self.obstacle_positions = self._generate_positions(self.num_obstacles)
         self.reward_positions = self._generate_positions(self.num_rewards)
 
-        # Create samples
-        for i in range(num_rewards):
-            sample = Sample(self.reward_positions[i][0], self.reward_positions[i][1])
-            self.samples.add(sample)
-            self.all_sprites.add(sample)
-
-        # Create obstacles
-        for i in range(num_obstacles):
-            obstacle = Obstacle(self.obstacle_positions[i][0], self.obstacle_positions[i][1], f"assets/obstacle_{i+1}.png")
-            self.obstacles.add(obstacle)
-            self.all_sprites.add(obstacle)
+        self._place_obstacles(self.num_obstacles)
+        self._place_samples(self.num_rewards)
 
         # Create the boat
         self.boat_position = (WIDTH // 2, HEIGHT // 2)
@@ -67,7 +58,21 @@ class NaavEnvironment(gym.Env):
         self.agent = boat
         self.all_sprites.add(boat)
         self.reset()
-    
+
+    def _place_samples(self, num_rewards):
+        for i in range(num_rewards):
+            sample = Sample(self.reward_positions[i][0], self.reward_positions[i][1])
+            self.samples.add(sample)
+            self.all_sprites.add(sample)
+
+    def _place_obstacles(self, num_obstacles):
+        # Create obstacles
+        for i in range(num_obstacles):
+            obstacle = Obstacle(self.obstacle_positions[i][0], self.obstacle_positions[i][1], f"assets/obstacle_{i+1}.png")
+            self.obstacles.add(obstacle)
+            self.all_sprites.add(obstacle)
+
+   
     def _generate_positions(self, num_positions):
         positions = []
         for _ in range(num_positions):
@@ -179,11 +184,21 @@ class NaavEnvironment(gym.Env):
     def reset(self):
         # Reset the environment to its initial state
         # Return the initial observation
-        self.__init__()
         self.current_step = 0
         self.collected_samples_count = 0
         self.agent.rect.x = WIDTH // 2
         self.agent.rect.y = HEIGHT // 2
+        self.all_sprites = pygame.sprite.Group()
+        self.samples = pygame.sprite.Group()
+        self.obstacles = pygame.sprite.Group()
+        self.obstacle_positions = self._generate_positions(self.num_obstacles)
+        self.reward_positions = self._generate_positions(self.num_rewards)
+        self._place_obstacles(self.num_obstacles)
+        self._place_samples(self.num_rewards)
+        self.boat_position = (WIDTH // 2, HEIGHT // 2)
+        boat = Boat(self.boat_position[0], self.boat_position[1])
+        self.agent = boat
+        self.all_sprites.add(boat)
         self.all_sprites.update()
         return pygame.surfarray.array3d(pygame.display.get_surface())
 
