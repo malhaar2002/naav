@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 import pygame
 import random
+import math
 import sys
 from naav_gui import Sample, Obstacle, Boat
 
@@ -25,6 +26,7 @@ class NaavEnvironment(gym.Env):
         self.max_steps = max_steps
         self.collected_samples_count = 0
         self.current_step = 0
+        self.visible_obstacles = []
 
         # reward policy
         self.reward_policy = {
@@ -64,7 +66,6 @@ class NaavEnvironment(gym.Env):
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
         self.all_sprites.add(boat)
-
         self.reset()
     
     def _generate_positions(self, num_positions):
@@ -112,6 +113,13 @@ class NaavEnvironment(gym.Env):
 
         return done, reward
 
+    def _is_within_sensing_range(self, position, sensing_range=60):
+        agent_x, agent_y = self.agent.rect.x, self.agent.rect.y
+        x, y = position
+        distance = math.sqrt((x - agent_x)**2 + (y - agent_y)**2)
+        if distance <= sensing_range:
+            return position
+
 
     def step(self, action):
         """
@@ -119,17 +127,26 @@ class NaavEnvironment(gym.Env):
         1 = move backwards
         2 = rotate left
         3 = rotate right
+        4 = do nothing
         """
         assert self.action_space.contains(action), f"Invalid action {action}"
         self.current_step += 1
         if action == 0:
-            self.agent.move(2)
+            if self.agent.velocity < self.agent.max_velocity:
+                vel_new = (self.agent.force / self.agent.mass) + self.agent.velocity
+                self.agent.velocity = vel_new
+            self.agent.move(self.agent.velocity)
         elif action == 1:
-            self.agent.move(-2)
+            if self.agent.velocity > -self.agent.max_velocity:
+                vel_new = (-self.agent.force / self.agent.mass) + self.agent.velocity
+                self.agent.velocity = vel_new 
+            self.agent.move(self.agent.velocity)
         elif action == 2:
             self.agent.angle -= 2
         elif action == 3:
             self.agent.angle += 2
+        elif action == 4:
+            pass
 
         # Update the environment based on the given action
         self.all_sprites.update()
@@ -145,11 +162,16 @@ class NaavEnvironment(gym.Env):
             print(f"Sample collected! Total samples collected: {self.collected_samples_count}")
             reward = self.reward_policy["sample"]
 
+        for obstacle in self.obstacle_positions:
+            if self._is_within_sensing_range(obstacle):
+                print("Obstacle within sensing range!")
+                self.visible_obstacles.append(obstacle)
+
         # Check for termination conditions
-        done, reward = self._check_termination_conditions(reward)
+        done, reward = self._check_termination_conditions(reward)        
 
         # Return observation, reward, done, info
-        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle)
+        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity, self.reward_positions, self.visible_obstacles)
         info = {}  # Any additional information you want to return
 
         return observation, reward, done, info
@@ -157,7 +179,9 @@ class NaavEnvironment(gym.Env):
     def reset(self):
         # Reset the environment to its initial state
         # Return the initial observation
+        self.__init__()
         self.current_step = 0
+        self.collected_samples_count = 0
         self.agent.rect.x = WIDTH // 2
         self.agent.rect.y = HEIGHT // 2
         self.all_sprites.update()
@@ -167,6 +191,8 @@ class NaavEnvironment(gym.Env):
     def render(self):
         self.screen.blit(background, (0, 0))
         self.all_sprites.draw(self.screen)
+        # Draw the sensing circle
+        self.agent.draw_sensing_circle(self.screen, 60)
         pygame.display.flip()
 
 
@@ -179,10 +205,9 @@ class NaavEnvironment(gym.Env):
 
 # Example of a training loop
 env = NaavEnvironment()
-for episode in range(10):
+for episode in range(100):
     observation = env.reset()
     done = False
-
     while not done:
         action = env.action_space.sample()  # Replace with your agent's action
         observation, reward, done, info = env.step(action)
