@@ -135,10 +135,9 @@ class NaavEnvironment(gym.Env):
     def step(self, action):
         """
         0 = move forwards
-        1 = move backwards
-        2 = rotate left
-        3 = rotate right
-        4 = do nothing
+        1 = rotate left
+        2 = rotate right
+        3 = do nothing
         """
         assert self.action_space.contains(action), f"Invalid action {action}"
         self.current_step += 1
@@ -148,15 +147,10 @@ class NaavEnvironment(gym.Env):
                 self.agent.velocity = vel_new
             self.agent.move(self.agent.velocity)
         elif action == 1:
-            if self.agent.velocity > -self.agent.max_velocity:
-                vel_new = (-self.agent.force / self.agent.mass) + self.agent.velocity
-                self.agent.velocity = vel_new 
-            self.agent.move(self.agent.velocity)
-        elif action == 2:
             self.agent.angle -= 2
-        elif action == 3:
+        elif action == 2:
             self.agent.angle += 2
-        elif action == 4:
+        elif action == 3:
             pass
 
         # Update the environment based on the given action
