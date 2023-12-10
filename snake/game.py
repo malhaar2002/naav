@@ -121,7 +121,7 @@ class SnakeGameAI:
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
         # hits itself
-        if pt in self.snake[1:]:
+        if pt in self.snake[1:] or pt in self.obstacles:
             return True
 
         return False
@@ -136,11 +136,6 @@ class SnakeGameAI:
             obstacle_image = pygame.image.load(f"../assets/obstacle_{obstacle_index+1}.png")
             obstacle_image = pygame.transform.scale(obstacle_image, (BLOCK_SIZE, BLOCK_SIZE))
             self.display.blit(obstacle_image, (obstacle.x, obstacle.y))
-
-        # Draw snake
-        # for pt in self.snake:
-        #     pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
-        #     pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
 
         # Draw snake
         for i, pt in enumerate(self.snake):
