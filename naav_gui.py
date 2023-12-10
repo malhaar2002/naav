@@ -31,9 +31,9 @@ class Boat(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
         self.velocity = 0
-        self.max_velocity = 10
+        self.max_velocity = 5
         self.mass = 5
-        self.force = 20
+        self.force = 5
 
     def update(self):
         keys = pygame.key.get_pressed()

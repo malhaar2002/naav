@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 import pygame
 import random
+import os
 import math
 import sys
 from naav_gui import Sample, Obstacle, Boat
@@ -27,6 +28,11 @@ class NaavEnvironment(gym.Env):
         self.collected_samples_count = 0
         self.current_step = 0
         self.visible_obstacles = []
+
+        self.save_path = "episode_images"
+        self.trail_points = []
+        self.font = pygame.font.Font(None, 30)
+        os.makedirs(self.save_path, exist_ok=True)
 
         # reward policy
         self.reward_policy = {
@@ -187,6 +193,9 @@ class NaavEnvironment(gym.Env):
         self.agent.rect.x = WIDTH // 2
         self.agent.rect.y = HEIGHT // 2
 
+        # remove previously drawn trail
+        self.trail_points = []
+
         # change obstacle and reward positions
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
@@ -206,6 +215,16 @@ class NaavEnvironment(gym.Env):
 
     def render(self):
         self.screen.blit(background, (0, 0))
+
+        # Draw the trail
+        self.trail_points.append((self.agent.rect.x, self.agent.rect.y))
+        if len(self.trail_points) >= 2:  # Check if there are enough points to draw a line
+            pygame.draw.lines(self.screen, (255, 0, 0), False, self.trail_points, 2)
+
+        # Draw the number of samples collected at the top of the screen
+        sample_text = self.font.render(f'Samples Collected: {self.collected_samples_count}', True, (255, 255, 255))
+        self.screen.blit(sample_text, (10, 10))
+
         self.all_sprites.draw(self.screen)
         # Draw the sensing circle
         self.agent.draw_sensing_circle(self.screen, 60)
@@ -222,7 +241,7 @@ class NaavEnvironment(gym.Env):
 # Example of a training loop
 if __name__ == '__main__':
     env = NaavEnvironment()
-    for episode in range(100):
+    for episode in range(9):
         observation = env.reset()
         done = False
         while not done:
@@ -232,5 +251,9 @@ if __name__ == '__main__':
             # Your training logic goes here
 
             env.render()
+
+        # Save the image
+        image_path = os.path.join(env.save_path, f"episode_{episode}.png")
+        pygame.image.save(env.screen, image_path)
 
     env.close()
