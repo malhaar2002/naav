@@ -2,7 +2,6 @@ import gym
 from gym import spaces
 import pygame
 import random
-import os
 import math
 import sys
 from naav_gui import Sample, Obstacle, Boat
@@ -19,7 +18,7 @@ background = pygame.image.load("assets/background.jpg")  # Replace with your ima
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 class NaavEnvironment(gym.Env):
-    def __init__(self, num_obstacles=4, num_rewards=5, max_steps=5000):
+    def __init__(self, num_obstacles=3, num_rewards=3, max_steps=1500):
         super(NaavEnvironment, self).__init__()
 
         self.num_obstacles = num_obstacles
@@ -27,16 +26,15 @@ class NaavEnvironment(gym.Env):
         self.max_steps = max_steps
         self.collected_samples_count = 0
         self.current_step = 0
-        self.visible_obstacles = []
-
-        self.trail_points = []
-        self.font = pygame.font.Font(None, 30)
+        self.visible_obstacles = [(-1, -1), (-1, -1)]
 
         # reward policy
         self.reward_policy = {
-            "obstacle": -10,
-            "sample": 10,
-            "step": -1,
+            "obstacle": -1000,
+            "detected_obstacle": -10,
+            "detected_reward": 10,
+            "sample": 1000,
+            "step": 0,
         }
 
         self.action_space = spaces.Discrete(4)  # Four discrete actions: 0, 1, 2, 3
@@ -61,21 +59,25 @@ class NaavEnvironment(gym.Env):
         self.reset()
 
     def _place_samples(self, num_rewards):
-        self.reward_positions = self._generate_positions(self.num_rewards)
+        # self.reward_positions = self._generate_positions(self.num_rewards, self.obstacle_positions)
+        self.reward_positions = [(543, 381), (360, 699), (1147, 84)]
+        # print("re:", self.reward_positions)
         for i in range(num_rewards):
             sample = Sample(self.reward_positions[i][0], self.reward_positions[i][1])
             self.samples.add(sample)
             self.all_sprites.add(sample)
 
     def _place_obstacles(self, num_obstacles):
-        self.obstacle_positions = self._generate_positions(self.num_obstacles)
+        # self.obstacle_positions = self._generate_positions(self.num_obstacles)
+        self.obstacle_positions = [(598, 295), (961, 137), (731, 503)]
+        # print("ob:", self.obstacle_positions)
         for i in range(num_obstacles):
             obstacle = Obstacle(self.obstacle_positions[i][0], self.obstacle_positions[i][1], f"assets/obstacle_{i+1}.png")
             self.obstacles.add(obstacle)
             self.all_sprites.add(obstacle)
 
    
-    def _generate_positions(self, num_positions):
+    def _generate_positions(self, num_positions, old_positons=[]):
         positions = []
         for _ in range(num_positions):
             while True:
@@ -83,7 +85,7 @@ class NaavEnvironment(gym.Env):
                     random.randint(50, WIDTH - 50),
                     random.randint(50, HEIGHT - 50),
                 )
-                if not self._check_collision(position, positions):
+                if not self._check_collision(position, positions+old_positons):
                     positions.append(position)
                     break
         return positions
@@ -107,6 +109,7 @@ class NaavEnvironment(gym.Env):
     def _check_termination_conditions(self, reward):
         # check if all samples collected
         if self.collected_samples_count == self.num_rewards:
+            # pass in info
             done = True
 
         # check if out of bounds
@@ -128,34 +131,49 @@ class NaavEnvironment(gym.Env):
 
         return done, reward
 
-    def _is_within_sensing_range(self, position, sensing_range=60):
+    def _is_within_sensing_range(self, position, sensing_range=150):
         agent_x, agent_y = self.agent.rect.x, self.agent.rect.y
         x, y = position
         distance = math.sqrt((x - agent_x)**2 + (y - agent_y)**2)
         if distance <= sensing_range:
             return position
+        
+    def _is_within_bounds(self, sensing_range=150):
+        agent_x, agent_y = self.agent.rect.x, self.agent.rect.y
+        if agent_x + sensing_range > WIDTH or agent_x - sensing_range < 0 or agent_y + sensing_range > HEIGHT or agent_y - sensing_range < 0:
+            return False
+        return True
 
 
     def step(self, action):
         """
         0 = move forwards
-        1 = rotate left
-        2 = rotate right
-        3 = do nothing
+        1 = move backwards
+        2 = rotate left
+        3 = rotate right
+        4 = do nothing
         """
         assert self.action_space.contains(action), f"Invalid action {action}"
         self.current_step += 1
         if action == 0:
-            if self.agent.velocity < self.agent.max_velocity:
-                vel_new = (self.agent.force / self.agent.mass) + self.agent.velocity
-                self.agent.velocity = vel_new
+            if self.agent.velocity + 0.05 < self.agent.max_velocity:
+            #     vel_new = (self.agent.force / self.agent.mass) + self.agent.velocity
+            #     self.agent.velocity = vel_new
+                self.agent.velocity += 0.05
             self.agent.move(self.agent.velocity)
         elif action == 1:
-            self.agent.angle -= 2
+            self.agent.velocity -= 0.1
+            if self.agent.velocity < 0:
+                self.agent.velocity = 0
+            self.agent.move(self.agent.velocity)
         elif action == 2:
-            self.agent.angle += 2
+            self.agent.angle -= 20
+            self.agent.move(self.agent.velocity)
         elif action == 3:
-            pass
+            self.agent.angle += 20
+            self.agent.move(self.agent.velocity)
+        # elif action == 3:
+        #     pass
 
         # Update the environment based on the given action
         self.all_sprites.update()
@@ -164,22 +182,44 @@ class NaavEnvironment(gym.Env):
         reward = self.reward_policy["step"]
         done = False
 
+        if self.visible_obstacles[0] != (-1,-1):
+            # print("test:", self.visible_obstacles)
+            reward = self.reward_policy["detected_obstacle"]
+
+        if self._is_within_bounds():
+            reward = self.reward_policy["detected_obstacle"]
+
+        if self.visible_obstacles[1] != (-1,-1):
+            reward = self.reward_policy["detected_reward"]
+
         # Check for sample collection
         sample_hits = pygame.sprite.spritecollide(self.agent, self.samples, True)
-        for _ in sample_hits:
+        for temp in sample_hits:
             self.collected_samples_count += 1
+            self.reward_positions[self.reward_positions.index((temp.rect.centerx, temp.rect.centery))] = (-1, -1)
+            # print(self.reward_positions)
+            # print(temp)
             reward = self.reward_policy["sample"]
 
+        self.visible_obstacles[0] = (-1,-1)
         for obstacle in self.obstacle_positions:
             if self._is_within_sensing_range(obstacle):
-                self.visible_obstacles.append(obstacle)
+                self.visible_obstacles[0] = obstacle
+        
+        self.visible_obstacles[1] = (-1,-1)
+        for rew in self.reward_positions:
+            if self._is_within_sensing_range(rew):
+                self.visible_obstacles[1] = rew
 
         # Check for termination conditions
         done, reward = self._check_termination_conditions(reward)        
 
         # Return observation, reward, done, info
-        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity, self.reward_positions, self.visible_obstacles)
-        info = {}  # Any additional information you want to return
+        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity) + self.reward_positions[0] + self.reward_positions[1] + self.reward_positions[2] + self.visible_obstacles[0] + self.visible_obstacles[1]
+        if done:
+            info = self.collected_samples_count  # Any additional information you want to return
+        else:
+            info = {}
 
         return observation, reward, done, info
 
@@ -191,9 +231,6 @@ class NaavEnvironment(gym.Env):
         self.agent.rect.x = WIDTH // 2
         self.agent.rect.y = HEIGHT // 2
 
-        # remove previously drawn trail
-        self.trail_points = []
-
         # change obstacle and reward positions
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
@@ -201,31 +238,30 @@ class NaavEnvironment(gym.Env):
         self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
 
-        self.boat_position = (WIDTH // 2, HEIGHT // 2)
+        self.boat_position = self._generate_non_overlapping_position()
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
+        self.agent.angle = random.randint(0,360)
         self.all_sprites.add(boat)
         self.all_sprites.update()
 
-        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity, self.reward_positions, self.visible_obstacles)
+        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity) + self.reward_positions[0] + self.reward_positions[1] + self.reward_positions[2] + self.visible_obstacles[0] + self.visible_obstacles[1]
         return observation
-
+    
+    def _generate_non_overlapping_position(self):
+        while True:
+            position = (
+                random.randint(50, WIDTH - 50),
+                random.randint(50, HEIGHT - 50),
+            )
+            if not self._check_collision(position, self.obstacle_positions) and not self._check_collision(position, self.reward_positions):
+                return position
 
     def render(self):
         self.screen.blit(background, (0, 0))
-
-        # Draw the trail
-        self.trail_points.append((self.agent.rect.x, self.agent.rect.y))
-        if len(self.trail_points) >= 2:  # Check if there are enough points to draw a line
-            pygame.draw.lines(self.screen, (255, 0, 0), False, self.trail_points, 2)
-
-        # Draw the number of samples collected at the top of the screen
-        sample_text = self.font.render(f'Samples Collected: {self.collected_samples_count}', True, (255, 255, 255))
-        self.screen.blit(sample_text, (10, 10))
-
         self.all_sprites.draw(self.screen)
         # Draw the sensing circle
-        self.agent.draw_sensing_circle(self.screen, 60)
+        self.agent.draw_sensing_circle(self.screen, 150)
         pygame.display.flip()
 
 
@@ -239,7 +275,7 @@ class NaavEnvironment(gym.Env):
 # Example of a training loop
 if __name__ == '__main__':
     env = NaavEnvironment()
-    for episode in range(1000):
+    for episode in range(100):
         observation = env.reset()
         done = False
         while not done:
@@ -247,10 +283,6 @@ if __name__ == '__main__':
             observation, reward, done, info = env.step(action)
 
             # Your training logic goes here
-
-            # Save the image
-            image_path = os.path.join(env.save_path, f"episode_{episode}.png")
-            pygame.image.save(env.screen, image_path)
 
             env.render()
 

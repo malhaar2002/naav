@@ -42,9 +42,9 @@ class Boat(pygame.sprite.Sprite):
         if keys[pygame.K_DOWN]:
             self.move(-2)
         if keys[pygame.K_LEFT]:
-            self.angle -= 30
+            self.angle -= 15 
         if keys[pygame.K_RIGHT]:
-            self.angle += 30
+            self.angle += 15 
 
         # Rotate the boat image
         self.image = pygame.transform.rotate(self.original_image, self.angle)
