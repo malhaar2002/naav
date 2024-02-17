@@ -2,7 +2,6 @@ import gym
 from gym import spaces
 import pygame
 import random
-import os
 import math
 import sys
 from naav_gui import Sample, Obstacle, Boat
@@ -247,10 +246,6 @@ if __name__ == '__main__':
             observation, reward, done, info = env.step(action)
 
             # Your training logic goes here
-
-            # Save the image
-            image_path = os.path.join(env.save_path, f"episode_{episode}.png")
-            pygame.image.save(env.screen, image_path)
 
             env.render()
 

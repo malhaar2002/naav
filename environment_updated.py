@@ -2,7 +2,7 @@ import gym
 from gym import spaces
 import pygame
 import random
-import math
+import numpy as np
 import sys
 from naav_gui import Sample, Obstacle, Boat
 
@@ -99,7 +99,7 @@ class NaavEnvironment(gym.Env):
     def _is_collision(self, position1, position2):
         x1, y1 = position1
         x2, y2 = position2
-        distance = math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+        distance = np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
         return distance < 70
 
     def _is_valid_position(self, position):
@@ -134,7 +134,7 @@ class NaavEnvironment(gym.Env):
     def _is_within_sensing_range(self, position, sensing_range=150):
         agent_x, agent_y = self.agent.rect.x, self.agent.rect.y
         x, y = position
-        distance = math.sqrt((x - agent_x)**2 + (y - agent_y)**2)
+        distance = np.sqrt((x - agent_x)**2 + (y - agent_y)**2)
         if distance <= sensing_range:
             return position
         
@@ -143,7 +143,6 @@ class NaavEnvironment(gym.Env):
         if agent_x + sensing_range > WIDTH or agent_x - sensing_range < 0 or agent_y + sensing_range > HEIGHT or agent_y - sensing_range < 0:
             return False
         return True
-
 
     def step(self, action):
         """
