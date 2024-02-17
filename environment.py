@@ -145,8 +145,8 @@ class NaavEnvironment(gym.Env):
         assert self.action_space.contains(action), f"Invalid action {action}"
         self.current_step += 1
         if action == 0:
-            if self.agent.velocity < self.agent.max_velocity:
-                vel_new = (self.agent.force / self.agent.mass) + self.agent.velocity
+            if self.agent.velocity < self.agent.MAX_VELOCITY:
+                vel_new = (self.agent.FORCE / self.agent.MASS) + self.agent.velocity
                 self.agent.velocity = vel_new
             self.agent.move(self.agent.velocity)
         elif action == 1:

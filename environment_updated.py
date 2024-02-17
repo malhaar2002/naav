@@ -4,7 +4,7 @@ import pygame
 import random
 import numpy as np
 import sys
-from naav_gui import Sample, Obstacle, Boat
+from naav_gui import Sample, Obstacle, Boat, FlowField
 
 # Initialize Pygame
 pygame.init()
@@ -12,6 +12,7 @@ pygame.init()
 # Constants
 WIDTH, HEIGHT = 1200, 800
 FPS = 60
+GRID_SIZE = 100 # This is only for adding a turbulent flow field. It does not mean the environement is discrete. 
 
 # Load background image
 background = pygame.image.load("assets/background.jpg")  # Replace with your image path
@@ -56,6 +57,11 @@ class NaavEnvironment(gym.Env):
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
         self.all_sprites.add(boat)
+
+        # initialize turblent flow field
+        self.turbulent_flow_field = FlowField(WIDTH, HEIGHT, GRID_SIZE)
+        self.turbulent_flow_field.create_flow_field()
+
         self.reset()
 
     def _place_samples(self, num_rewards):
@@ -146,33 +152,23 @@ class NaavEnvironment(gym.Env):
 
     def step(self, action):
         """
-        0 = move forwards
-        1 = move backwards
+        0 = exert force in the forward direction
+        1 = exert force in the backward direction
         2 = rotate left
         3 = rotate right
-        4 = do nothing
         """
         assert self.action_space.contains(action), f"Invalid action {action}"
         self.current_step += 1
         if action == 0:
-            if self.agent.velocity + 0.05 < self.agent.max_velocity:
-            #     vel_new = (self.agent.force / self.agent.mass) + self.agent.velocity
-            #     self.agent.velocity = vel_new
-                self.agent.velocity += 0.05
-            self.agent.move(self.agent.velocity)
+            self.agent.accelerate(current_step = self.current_step)
+            # self.agent.velocity += 0.05
         elif action == 1:
-            self.agent.velocity -= 0.1
-            if self.agent.velocity < 0:
-                self.agent.velocity = 0
-            self.agent.move(self.agent.velocity)
+            self.agent.decelearate(current_step = self.current_step)
         elif action == 2:
-            self.agent.angle -= 20
-            self.agent.move(self.agent.velocity)
+            self.agent.turn_left()
         elif action == 3:
-            self.agent.angle += 20
-            self.agent.move(self.agent.velocity)
-        # elif action == 3:
-        #     pass
+            self.agent.turn_right()
+        self.agent.move(self.turbulent_flow_field, self.current_step)
 
         # Update the environment based on the given action
         self.all_sprites.update()
@@ -237,6 +233,9 @@ class NaavEnvironment(gym.Env):
         self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
 
+        self.turbulent_flow_field.create_flow_field()
+        self.turbulent_flow_field.draw_arrows(self.screen)
+
         self.boat_position = self._generate_non_overlapping_position()
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
@@ -259,6 +258,7 @@ class NaavEnvironment(gym.Env):
     def render(self):
         self.screen.blit(background, (0, 0))
         self.all_sprites.draw(self.screen)
+        self.turbulent_flow_field.draw_arrows(self.screen)
         # Draw the sensing circle
         self.agent.draw_sensing_circle(self.screen, 150)
         pygame.display.flip()

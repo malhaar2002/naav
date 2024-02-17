@@ -32,10 +32,12 @@ class Boat(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(x, y))
         self.angle = 0
         self.velocity = 0
-        self.max_velocity = 5
-        self.mass = 5
-        self.force = 5
-        self.flow_factor = 0.2
+        self.MAX_VELOCITY = 1
+        self.MASS = 5
+        self.FORCE = 0
+        self.TURBULENT_FLOW_FORCE = 0.2
+        self.FLOW_FACTOR = 0.2
+        self.TURN_ANGLE = 20
 
     def update(self):
         keys = pygame.key.get_pressed()
@@ -44,36 +46,57 @@ class Boat(pygame.sprite.Sprite):
         if keys[pygame.K_DOWN]:
             self.move(-2)
         if keys[pygame.K_LEFT]:
-            self.angle -= 15 
+            self.angle -= 20 
         if keys[pygame.K_RIGHT]:
-            self.angle += 15 
+            self.angle += 20 
 
         # Rotate the boat image
         self.image = pygame.transform.rotate(self.original_image, self.angle)
         self.rect = self.image.get_rect(center=self.rect.center)
 
-    def move(self, speed):
+    def accelerate(self, current_step):
+        acceleration = self.FORCE / self.MASS
+        vel_new = self.velocity + (acceleration * current_step)
+        self.velocity = min(vel_new, self.MAX_VELOCITY)
+
+    def decelearate(self, current_step):
+        acceleration = self.FORCE / self.MASS
+        vel_new = self.velocity - (acceleration * current_step)
+        self.velocity = max(vel_new, 0.0)
+
+    def turn_left(self):
+        self.angle -= self.TURN_ANGLE 
+
+    def turn_right(self):
+        self.angle += self.TURN_ANGLE
+
+    def move(self, flow_field, current_step):
         # Update the boat's position based on its angle
-        self.rect.x += speed * math.cos(math.radians(self.angle))
-        self.rect.y -= speed * math.sin(math.radians(self.angle))
+        # self.rect.x += speed * math.cos(math.radians(self.angle))
+        # self.rect.y -= speed * math.sin(math.radians(self.angle))
 
         # Get the boat's position in grid coordinates
         grid_x = int(self.rect.x / GRID_SIZE)
         grid_y = int(self.rect.y / GRID_SIZE)
 
         # Get the flow direction at the boat's position
-        flow_direction = self.flow_field.get_flow_direction(grid_x, grid_y)
+        flow_direction = flow_field.get_flow_direction(grid_x, grid_y)
 
-        # Adjust the boat's position based on the flow direction
-        self.rect.x += self.flow_factor * speed * math.cos(flow_direction)
-        self.rect.y -= self.flow_factor * speed * math.sin(flow_direction)
+        # Calculate the components of the boat's velocity
+        vel_x = self.velocity * math.cos(math.radians(self.angle))
+        vel_y = -self.velocity * math.sin(math.radians(self.angle))
+
+        # Calculate the components of the total force
+        total_force_x = self.FORCE * math.cos(math.radians(flow_direction)) + self.TURBULENT_FLOW_FORCE * math.cos(math.radians(flow_direction))
+        total_force_y = -self.FORCE * math.sin(math.radians(flow_direction)) - self.TURBULENT_FLOW_FORCE * math.sin(math.radians(flow_direction))
+
+        # Update the boat's position based on the total force
+        self.rect.x += (vel_x + total_force_x / self.MASS) * current_step
+        self.rect.y += (vel_y + total_force_y / self.MASS) * current_step
 
     def draw_sensing_circle(self, screen, radius):
         # Draw a red circle around the agent
         pygame.draw.circle(screen, RED, (int(self.rect.centerx), int(self.rect.centery)), radius, 5)
-
-    def _set_flow_field(self, flow_field):
-        self.flow_field = flow_field
 
 
 # Sample class
@@ -99,7 +122,7 @@ class FlowField:
         self.height = height
         self.grid_size = grid_size
         self.arrow_size = (20, 20)  # Set the size of the arrow image
-        self.flow_field = self.create_flow_field()
+        self.create_flow_field()
         # Load the arrow image
         self.arrow_image = pygame.image.load("assets/arrow.png")
         self.arrow_image = pygame.transform.scale(self.arrow_image, (20, 20))
@@ -123,7 +146,7 @@ class FlowField:
 
             flow_field.append(row)
 
-        return flow_field
+        self.flow_field = flow_field
 
 
     def get_flow_direction(self, x, y):
@@ -176,7 +199,6 @@ all_sprites.add(boat)
 
 # Set the flow field for the boat
 flow_field = FlowField(WIDTH, HEIGHT, GRID_SIZE)
-boat._set_flow_field(flow_field)
 
 # Counters
 sample_count = 0
@@ -195,7 +217,7 @@ if __name__ == '__main__':
 
         all_sprites.update()
 
-        boat.move(speed = 2)
+        boat.move(speed = 2, flow_field = flow_field)
 
         # Check for collisions with samples
         sample_hits = pygame.sprite.spritecollide(boat, samples, True)
