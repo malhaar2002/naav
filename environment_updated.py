@@ -80,7 +80,10 @@ class NaavEnvironment(gym.Env):
         idx = tour.index(0)
         tour = tour[idx:] + tour[:idx]
         # print(tour)
-        self.reward_positions = tour[1:]
+        temp = []
+        for i in tour:
+            temp.append(self.reward_positions[i-1]) 
+        self.reward_positions = temp
         self.curr_sample = self.reward_positions[0]
         self.reward_positions.pop(0)
 
@@ -198,6 +201,8 @@ class NaavEnvironment(gym.Env):
                 self.curr_sample = self.reward_positions[0]
                 self.reward_positions.pop(0)
             else:
+                # print(self.reward_positions)
+                # print(temp.rect.centerx, temp.rect.centery)
                 self.reward_positions.remove((temp.rect.centerx, temp.rect.centery))
             # self.reward_positions[self.reward_positions.index((temp.rect.centerx, temp.rect.centery))] = (-1, -1)
             # print(self.reward_positions)
