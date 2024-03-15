@@ -5,6 +5,7 @@ import random
 import numpy as np
 import sys
 from naav_gui import Sample, Obstacle, Boat, FlowField
+import sys
 
 # Initialize Pygame
 pygame.init()
@@ -59,8 +60,8 @@ class NaavEnvironment(gym.Env):
         self.all_sprites.add(boat)
 
         # initialize turblent flow field
-        self.turbulent_flow_field = FlowField(WIDTH, HEIGHT, GRID_SIZE)
-        self.turbulent_flow_field.create_flow_field()
+        self.flow_field = FlowField(WIDTH, HEIGHT, GRID_SIZE)
+        self.flow_field.create_flow_field()
 
         self.reset()
 
@@ -152,23 +153,14 @@ class NaavEnvironment(gym.Env):
 
     def step(self, action):
         """
-        0 = exert force in the forward direction
-        1 = exert force in the backward direction
+        0 = exert force in the backward direction
+        1 = exert force in the forward direction
         2 = rotate left
         3 = rotate right
         """
         assert self.action_space.contains(action), f"Invalid action {action}"
         self.current_step += 1
-        if action == 0:
-            self.agent.accelerate(current_step = self.current_step)
-            # self.agent.velocity += 0.05
-        elif action == 1:
-            self.agent.decelearate(current_step = self.current_step)
-        elif action == 2:
-            self.agent.turn_left()
-        elif action == 3:
-            self.agent.turn_right()
-        self.agent.move(self.turbulent_flow_field, self.current_step)
+        self.agent.move(self.flow_field, dt, action)
 
         # Update the environment based on the given action
         self.all_sprites.update()
@@ -233,13 +225,15 @@ class NaavEnvironment(gym.Env):
         self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
 
-        self.turbulent_flow_field.create_flow_field()
-        self.turbulent_flow_field.draw_arrows(self.screen)
+        self.flow_field.create_flow_field()
+        with open("flow_field.json", "w") as f:
+            f.write(str(self.flow_field.flow_field))
+        self.flow_field.draw_arrows(self.screen)
 
         self.boat_position = self._generate_non_overlapping_position()
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
-        self.agent.angle = random.randint(0,360)
+        # self.agent.angle = random.randint(0,360)
         self.all_sprites.add(boat)
         self.all_sprites.update()
 
@@ -258,7 +252,7 @@ class NaavEnvironment(gym.Env):
     def render(self):
         self.screen.blit(background, (0, 0))
         self.all_sprites.draw(self.screen)
-        self.turbulent_flow_field.draw_arrows(self.screen)
+        self.flow_field.draw_arrows(self.screen)
         # Draw the sensing circle
         self.agent.draw_sensing_circle(self.screen, 150)
         pygame.display.flip()
@@ -274,11 +268,17 @@ class NaavEnvironment(gym.Env):
 # Example of a training loop
 if __name__ == '__main__':
     env = NaavEnvironment()
+    clock = pygame.time.Clock()  # Initialize the clock
     for episode in range(100):
         observation = env.reset()
         done = False
         while not done:
-            action = env.action_space.sample()  # Replace with your agent's action
+            # action = env.action_space.sample()  # Replace with your agent's action
+            action = 0
+            
+            # Update the clock
+            dt = clock.tick(FPS) / 1000  # Convert milliseconds to seconds
+
             observation, reward, done, info = env.step(action)
 
             # Your training logic goes here
