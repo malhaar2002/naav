@@ -4,7 +4,7 @@ import pygame
 import random
 import numpy as np
 import sys
-from naav_gui import Sample, Obstacle, Boat, FlowField
+from naav_gui import Sample, Obstacle, DynamicObstacle, Boat, FlowField
 import sys
 from tsp_new import TSP
 
@@ -21,10 +21,11 @@ background = pygame.image.load("assets/background.jpg")  # Replace with your ima
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 class NaavEnvironment(gym.Env):
-    def __init__(self, num_obstacles=3, num_rewards=3, max_steps=1500):
+    def __init__(self, num_obstacles=3, num_rewards=3, num_dynamic_obstacles=1, max_steps=1500):
         super(NaavEnvironment, self).__init__()
 
         self.num_obstacles = num_obstacles
+        self.num_dynamic_obstacles = num_dynamic_obstacles
         self.num_rewards = num_rewards
         self.max_steps = max_steps
         self.collected_samples_count = 0
@@ -51,6 +52,11 @@ class NaavEnvironment(gym.Env):
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
         # self.obstacles = pygame.sprite.Group()
+        # self.dynamic_obstacles = pygame.sprite.Group()
+
+        # self._place_obstacles(self.num_obstacles)
+        # self._place_dynamic_obstacles(self.num_dynamic_obstacles)
+        self._place_samples(self.num_rewards)
 
         # Create the boat
         self.boat_position = (WIDTH // 2, HEIGHT // 2)
@@ -93,6 +99,14 @@ class NaavEnvironment(gym.Env):
             obstacle = Obstacle(self.obstacle_positions[i][0], self.obstacle_positions[i][1], f"assets/obstacle_{i+1}.png")
             self.obstacles.add(obstacle)
             self.all_sprites.add(obstacle)
+
+    def _place_dynamic_obstacles(self, num_dynamic_obstacles):
+        start_x = random.randint(50, WIDTH - 50)
+        start_y = random.randint(50, HEIGHT - 50)
+        for i in range(num_dynamic_obstacles):
+            dynamic_obstacle = DynamicObstacle(start_x, start_y, "assets/boat.png", 2, 0)
+            self.dynamic_obstacles.add(dynamic_obstacle)
+            self.all_sprites.add(dynamic_obstacle)
 
    
     def _generate_positions(self, num_positions, old_positons=[]):
@@ -242,8 +256,6 @@ class NaavEnvironment(gym.Env):
         self._place_samples(self.num_rewards)
 
         self.flow_field.create_flow_field()
-        with open("flow_field.json", "w") as f:
-            f.write(str(self.flow_field.flow_field))
         self.flow_field.draw_arrows(self.screen)
 
         self.boat_position = self._generate_non_overlapping_position()
@@ -291,7 +303,7 @@ if __name__ == '__main__':
         done = False
         while not done:
             # action = env.action_space.sample()  # Replace with your agent's action
-            action = 0
+            action = 1
             
             # Update the clock
             dt = clock.tick(FPS) / 1000  # Convert milliseconds to seconds

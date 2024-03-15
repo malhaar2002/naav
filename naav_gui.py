@@ -39,11 +39,18 @@ class Obstacle(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, (50, 50))
         self.rect = self.image.get_rect(center=(x, y))
 
+class DynamicObstacle(Obstacle):
+    def __init__(self, x, y, sprite_path, velocity, angle):
+        super().__init__(x, y, sprite_path)
+        self.velocity = velocity
+        self.angle = angle
+
 # Flow field class
 class FlowField:
     def __init__(self, width, height, grid_size):
         self.width = width
         self.height = height
+        self.velocity = 250
         self.grid_size = grid_size
         self.arrow_size = (20, 20)  # Set the size of the arrow image
         self.create_flow_field()
@@ -55,18 +62,21 @@ class FlowField:
     def create_flow_field(self):
         # Initialize a flow field with a general direction and slight variations in angle
         flow_field = []
-        base_angle = random.uniform(0, 2 * math.pi)  # General direction
+        # base_angle = random.uniform(0, 2 * math.pi)  # General direction
+        base_angle = 0
 
         for _ in range(self.width // self.grid_size):
             row = []
-            angle_variation = random.uniform(-math.pi / 8, math.pi / 8)  # Angle variation
+            # angle_variation = random.uniform(-math.pi / 8, math.pi / 8)  # Angle variation
+            angle_variation = 0
 
             for _ in range(self.height // self.grid_size):
                 angle = base_angle + angle_variation
                 row.append(angle)
 
                 # Update angle for the next cell with a slight variation
-                angle_variation += random.uniform(-math.pi / 16, math.pi / 16)
+                # angle_variation += random.uniform(-math.pi / 16, math.pi / 16)
+                angle_variation = 0
 
             flow_field.append(row)
 
@@ -112,10 +122,9 @@ class Boat(pygame.sprite.Sprite):
         self.velocity = 0
         self.velocity_x = 0
         self.velocity_y = 0
-        self.MAX_VELOCITY = 1
-        self.MASS = 5
-        self.FORCE = 500
-        self.TURBULENT_FLOW_FORCE = 500
+        self.MAX_VELOCITY = 10
+        self.MASS = 100
+        self.FORCE = 10
         self.TURN_ANGLE = 20
 
     def update(self):
@@ -139,11 +148,11 @@ class Boat(pygame.sprite.Sprite):
         flow_direction = flow_field.get_flow_direction(self.rect.x, self.rect.y)
         
         # Calculate the force components based on the flow direction
-        turb_force_x = self.TURBULENT_FLOW_FORCE * math.cos(flow_direction)
-        turb_force_y = self.TURBULENT_FLOW_FORCE * math.sin(flow_direction)
+        flow_vel_x = flow_field.velocity * math.cos(flow_direction)
+        flow_vel_y = flow_field.velocity * math.sin(flow_direction)
 
-        total_force_y = turb_force_y
-        total_force_x = turb_force_x
+        total_force_y = 0
+        total_force_x = 0
 
         if action == 0:
             total_force_x += self.FORCE * math.cos(math.radians(self.angle))  # Thrust force
@@ -160,8 +169,8 @@ class Boat(pygame.sprite.Sprite):
             self.angle += self.TURN_ANGLE
 
         # Calculate the displacement using kinematic equations
-        displacement_x = self.velocity_x * dt + 0.5 * (total_force_x) / self.MASS * dt**2
-        displacement_y = self.velocity_y * dt + 0.5 * (total_force_y) / self.MASS * dt**2
+        displacement_x = (self.velocity_x + flow_vel_x) * dt + 0.5 * (total_force_x) / self.MASS * dt**2
+        displacement_y = (self.velocity_y + flow_vel_y) * dt + 0.5 * (total_force_y) / self.MASS * dt**2
 
         # Update the velocity using the change in force
         self.velocity_x += (total_force_x) / self.MASS * dt
