@@ -2,7 +2,7 @@ import pygame
 import random
 from enum import Enum
 from collections import namedtuple
-from tsp_new import TSP
+from tsp import TSP
 import numpy as np
 
 pygame.init()
@@ -84,7 +84,7 @@ class SnakeGameAI:
                 foods.append(food)
 
         # print(food_locations)
-        tour = TSP().solve_tsp(food_locations)
+        tour = TSP().tsp_branch_and_bound(food_locations)
         # print(tour)
 
         for i in tour:
@@ -93,20 +93,33 @@ class SnakeGameAI:
         self.food = self.all_food[0] #TODO: Also do this to the food in the play_step method and what to do when the food is eaten
 
 
-    def play_step(self, action):
+    def play_step(self):
         self.frame_iteration += 1
         # 1. collect user input
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        action = [1, 0, 0]
+                    elif event.key == pygame.K_RIGHT:
+                        action = [0, 1, 0]
+                    elif event.key == pygame.K_UP:
+                        action = [0, 0, 1]
+                    
+                    break
+                    # elif event.key == pygame.K_DOWN:
+                    #     self.direction = Direction.DOWN
         
         # 2. move
         self._move(action) # update the head
         self.snake.insert(0, self.head)
         
         # 3. check if game over
-        reward = -0.1
+        reward = 0
         game_over = False
         
         if self.is_collision() or self.frame_iteration > 100*len(self.snake):
@@ -218,3 +231,18 @@ class SnakeGameAI:
             y -= BLOCK_SIZE
 
         self.head = Point(x, y)
+
+if __name__ == '__main__':
+    game = SnakeGameAI()
+    
+    # game loop
+    while True:
+        game_over, score = game.play_step()
+        
+        if game_over == True:
+            break
+        
+    print('Final Score', score)
+        
+        
+    pygame.quit()

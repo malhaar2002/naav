@@ -6,6 +6,7 @@ import numpy as np
 import sys
 from naav_gui import Sample, Obstacle, Boat, FlowField
 import sys
+from tsp_new import TSP
 
 # Initialize Pygame
 pygame.init()
@@ -28,7 +29,8 @@ class NaavEnvironment(gym.Env):
         self.max_steps = max_steps
         self.collected_samples_count = 0
         self.current_step = 0
-        self.visible_obstacles = [(-1, -1), (-1, -1)]
+        # self.visible_obstacles = [(-1, -1), (-1, -1)]
+        self.curr_sample = None
 
         # reward policy
         self.reward_policy = {
@@ -48,15 +50,14 @@ class NaavEnvironment(gym.Env):
         # Initialize your game objects here (similar to your Pygame code)
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
-        self.obstacles = pygame.sprite.Group()
-
-        self._place_obstacles(self.num_obstacles)
-        self._place_samples(self.num_rewards)
+        # self.obstacles = pygame.sprite.Group()
 
         # Create the boat
         self.boat_position = (WIDTH // 2, HEIGHT // 2)
         boat = Boat(self.boat_position[0], self.boat_position[1])
         self.agent = boat
+        # self._place_obstacles(self.num_obstacles)
+        self._place_samples(self.num_rewards)
         self.all_sprites.add(boat)
 
         # initialize turblent flow field
@@ -73,6 +74,16 @@ class NaavEnvironment(gym.Env):
             sample = Sample(self.reward_positions[i][0], self.reward_positions[i][1])
             self.samples.add(sample)
             self.all_sprites.add(sample)
+
+        tour = TSP().solve_tsp([self.boat_position] + self.reward_positions)
+
+        idx = tour.index(0)
+        tour = tour[idx:] + tour[:idx]
+        # print(tour)
+        self.reward_positions = tour[1:]
+        self.curr_sample = self.reward_positions[0]
+        self.reward_positions.pop(0)
+
 
     def _place_obstacles(self, num_obstacles):
         # self.obstacle_positions = self._generate_positions(self.num_obstacles)
@@ -129,9 +140,9 @@ class NaavEnvironment(gym.Env):
             done = True
 
         # Check for collisions with obstacles
-        elif pygame.sprite.spritecollide(self.agent, self.obstacles, False):
-            reward = self.reward_policy["obstacle"]
-            done = True 
+        # elif pygame.sprite.spritecollide(self.agent, self.obstacles, False):
+        #     reward = self.reward_policy["obstacle"]
+        #     done = True 
         
         else:
             done = False
@@ -169,40 +180,45 @@ class NaavEnvironment(gym.Env):
         reward = self.reward_policy["step"]
         done = False
 
-        if self.visible_obstacles[0] != (-1,-1):
-            # print("test:", self.visible_obstacles)
-            reward = self.reward_policy["detected_obstacle"]
+        # if self.visible_obstacles[0] != (-1,-1):
+        #     # print("test:", self.visible_obstacles)
+        #     reward = self.reward_policy["detected_obstacle"]
 
         if self._is_within_bounds():
             reward = self.reward_policy["detected_obstacle"]
 
-        if self.visible_obstacles[1] != (-1,-1):
-            reward = self.reward_policy["detected_reward"]
+        # if self.visible_obstacles[1] != (-1,-1):
+        #     reward = self.reward_policy["detected_reward"]
 
         # Check for sample collection
         sample_hits = pygame.sprite.spritecollide(self.agent, self.samples, True)
         for temp in sample_hits:
             self.collected_samples_count += 1
-            self.reward_positions[self.reward_positions.index((temp.rect.centerx, temp.rect.centery))] = (-1, -1)
+            if (temp.rect.centerx, temp.rect.centery) == self.curr_sample:
+                self.curr_sample = self.reward_positions[0]
+                self.reward_positions.pop(0)
+            else:
+                self.reward_positions.remove((temp.rect.centerx, temp.rect.centery))
+            # self.reward_positions[self.reward_positions.index((temp.rect.centerx, temp.rect.centery))] = (-1, -1)
             # print(self.reward_positions)
             # print(temp)
             reward = self.reward_policy["sample"]
 
-        self.visible_obstacles[0] = (-1,-1)
-        for obstacle in self.obstacle_positions:
-            if self._is_within_sensing_range(obstacle):
-                self.visible_obstacles[0] = obstacle
+        # self.visible_obstacles[0] = (-1,-1)
+        # for obstacle in self.obstacle_positions:
+        #     if self._is_within_sensing_range(obstacle):
+        #         self.visible_obstacles[0] = obstacle
         
-        self.visible_obstacles[1] = (-1,-1)
-        for rew in self.reward_positions:
-            if self._is_within_sensing_range(rew):
-                self.visible_obstacles[1] = rew
+        # self.visible_obstacles[1] = (-1,-1)
+        # for rew in self.reward_positions:
+        #     if self._is_within_sensing_range(rew):
+        #         self.visible_obstacles[1] = rew
 
         # Check for termination conditions
         done, reward = self._check_termination_conditions(reward)        
 
         # Return observation, reward, done, info
-        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity) + self.reward_positions[0] + self.reward_positions[1] + self.reward_positions[2] + self.visible_obstacles[0] + self.visible_obstacles[1]
+        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity, self.flow_field.velocity, self.flow_field.get_flow_direction(self.agent.rect.x, self.agent.rect.y), self.curr_sample) # TODO: Add obstacles
         if done:
             info = self.collected_samples_count  # Any additional information you want to return
         else:
@@ -221,8 +237,8 @@ class NaavEnvironment(gym.Env):
         # change obstacle and reward positions
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
-        self.obstacles = pygame.sprite.Group()
-        self._place_obstacles(self.num_obstacles)
+        # self.obstacles = pygame.sprite.Group()
+        # self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
 
         self.flow_field.create_flow_field()
@@ -237,7 +253,7 @@ class NaavEnvironment(gym.Env):
         self.all_sprites.add(boat)
         self.all_sprites.update()
 
-        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity) + self.reward_positions[0] + self.reward_positions[1] + self.reward_positions[2] + self.visible_obstacles[0] + self.visible_obstacles[1]
+        observation = (self.agent.rect.x, self.agent.rect.y, self.agent.angle, self.agent.velocity, self.flow_field.velocity, self.flow_field.get_flow_direction(self.agent.rect.x, self.agent.rect.y), self.curr_sample) # TODO: Add obstacles
         return observation
     
     def _generate_non_overlapping_position(self):
@@ -246,8 +262,9 @@ class NaavEnvironment(gym.Env):
                 random.randint(50, WIDTH - 50),
                 random.randint(50, HEIGHT - 50),
             )
-            if not self._check_collision(position, self.obstacle_positions) and not self._check_collision(position, self.reward_positions):
-                return position
+            return position # TODO: Remove when implementing obstacles
+            # if not self._check_collision(position, self.obstacle_positions) and not self._check_collision(position, self.reward_positions):
+            #     return position
 
     def render(self):
         self.screen.blit(background, (0, 0))
