@@ -87,10 +87,10 @@ class NaavEnvironment(gym.Env):
             self.all_sprites.add(obstacle)
 
     def _place_dynamic_obstacles(self, num_dynamic_obstacles):
-        start_x = random.randint(50, WIDTH - 50)
+        start_x = 50
         start_y = random.randint(50, HEIGHT - 50)
         for i in range(num_dynamic_obstacles):
-            dynamic_obstacle = DynamicObstacle(start_x, start_y, "assets/boat.png", 2, 0)
+            dynamic_obstacle = DynamicObstacle(start_x, start_y, "assets/swimmer.png", 2, 0)
             self.dynamic_obstacles.add(dynamic_obstacle)
             self.all_sprites.add(dynamic_obstacle)
 
@@ -233,8 +233,10 @@ class NaavEnvironment(gym.Env):
         self.all_sprites = pygame.sprite.Group()
         self.samples = pygame.sprite.Group()
         self.obstacles = pygame.sprite.Group()
+        self.dynamic_obstacles = pygame.sprite.Group()
         self._place_obstacles(self.num_obstacles)
         self._place_samples(self.num_rewards)
+        self._place_dynamic_obstacles(self.num_dynamic_obstacles)
 
         self.flow_field.create_flow_field()
         self.flow_field.draw_arrows(self.screen)

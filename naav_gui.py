@@ -7,7 +7,7 @@ import sys
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1200, 800
 FPS = 60
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
@@ -42,8 +42,20 @@ class Obstacle(pygame.sprite.Sprite):
 class DynamicObstacle(Obstacle):
     def __init__(self, x, y, sprite_path, velocity, angle):
         super().__init__(x, y, sprite_path)
+        self.image = pygame.transform.scale(self.image, (100, 100))
         self.velocity = velocity
         self.angle = angle
+
+    def update(self):
+        self.rect.x += self.velocity * math.cos(self.angle)
+        self.rect.y -= self.velocity * math.sin(self.angle)
+
+        # Bounce off the walls
+        if self.rect.right >= WIDTH or self.rect.left <= 0:
+            self.angle = math.pi - self.angle
+            self.image = pygame.transform.flip(self.image, True, False)
+        if self.rect.bottom >= HEIGHT or self.rect.top <= 0:
+            self.angle = -self.angle
 
 # Flow field class
 class FlowField:
@@ -62,21 +74,18 @@ class FlowField:
     def create_flow_field(self):
         # Initialize a flow field with a general direction and slight variations in angle
         flow_field = []
-        # base_angle = random.uniform(0, 2 * math.pi)  # General direction
-        base_angle = 0
+        base_angle = random.uniform(0, 2 * math.pi)  # General direction
 
         for _ in range(self.width // self.grid_size):
             row = []
-            # angle_variation = random.uniform(-math.pi / 8, math.pi / 8)  # Angle variation
-            angle_variation = 0
+            angle_variation = random.uniform(-math.pi / 8, math.pi / 8)  # Angle variation
 
             for _ in range(self.height // self.grid_size):
                 angle = base_angle + angle_variation
                 row.append(angle)
 
                 # Update angle for the next cell with a slight variation
-                # angle_variation += random.uniform(-math.pi / 16, math.pi / 16)
-                angle_variation = 0
+                angle_variation += random.uniform(-math.pi / 16, math.pi / 16)
 
             flow_field.append(row)
 
@@ -122,9 +131,9 @@ class Boat(pygame.sprite.Sprite):
         self.velocity = 0
         self.velocity_x = 0
         self.velocity_y = 0
-        self.MAX_VELOCITY = 10
+        self.MAX_VELOCITY = 20
         self.MASS = 100
-        self.FORCE = 10
+        self.FORCE = 5000
         self.TURN_ANGLE = 20
 
     def update(self):
