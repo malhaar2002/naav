@@ -46,26 +46,6 @@ class NaavEnvironment(gym.Env):
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("Naav")
 
-        # Initialize your game objects here (similar to your Pygame code)
-        self.all_sprites = pygame.sprite.Group()
-        self.samples = pygame.sprite.Group()
-        self.obstacles = pygame.sprite.Group()
-        self.dynamic_obstacles = pygame.sprite.Group()
-
-        self._place_obstacles(self.num_obstacles)
-        self._place_dynamic_obstacles(self.num_dynamic_obstacles)
-        self._place_samples(self.num_rewards)
-
-        # Create the boat
-        self.boat_position = (WIDTH // 2, HEIGHT // 2)
-        boat = Boat(self.boat_position[0], self.boat_position[1])
-        self.agent = boat
-        self.all_sprites.add(boat)
-
-        # initialize turblent flow field
-        self.flow_field = FlowField(WIDTH, HEIGHT, GRID_SIZE)
-        self.flow_field.create_flow_field()
-
         self.reset()
 
     def _place_samples(self, num_rewards):
@@ -226,8 +206,6 @@ class NaavEnvironment(gym.Env):
         # Return the initial observation
         self.current_step = 0
         self.collected_samples_count = 0
-        self.agent.rect.x = WIDTH // 2
-        self.agent.rect.y = HEIGHT // 2
 
         # change obstacle and reward positions
         self.all_sprites = pygame.sprite.Group()
@@ -238,6 +216,7 @@ class NaavEnvironment(gym.Env):
         self._place_samples(self.num_rewards)
         self._place_dynamic_obstacles(self.num_dynamic_obstacles)
 
+        self.flow_field = FlowField(WIDTH, HEIGHT, GRID_SIZE)
         self.flow_field.create_flow_field()
         self.flow_field.draw_arrows(self.screen)
 
